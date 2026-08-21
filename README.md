@@ -1,5 +1,9 @@
+<p align="center">
+  <img src="docs/assets/readme/logo-white.png" alt="Fluid Simulation logo" width="80" />
+</p>
+
 <h1 align="center">
-  <img src="docs/photos/logo/title-animation.svg" alt="Fluid Simulation" width="650" />
+  <img src="docs/assets/readme/title-animation.svg" alt="Fluid Simulation" width="650" />
 </h1>
 
 <p align="center">

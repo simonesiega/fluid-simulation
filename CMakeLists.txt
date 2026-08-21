@@ -22,3 +22,13 @@ add_executable(fluid-simulation
 target_compile_features(fluid-simulation PRIVATE cxx_std_20)
 
 target_link_libraries(fluid-simulation PRIVATE raylib)
+
+add_custom_command(
+    TARGET fluid-simulation POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:fluid-simulation>/assets/icons"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/logo-32.png"
+            "$<TARGET_FILE_DIR:fluid-simulation>/assets/icons/logo-32.png"
+    VERBATIM
+)
