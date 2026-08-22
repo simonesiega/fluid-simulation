@@ -1,0 +1,5 @@
+# Generated build trees and downloaded dependencies.
+build/**
+Build/**
+build-*/**
+vcpkg_installed/**
