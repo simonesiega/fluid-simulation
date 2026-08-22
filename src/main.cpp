@@ -2,34 +2,40 @@
 
 #include <raylib.h>
 
-int main()
-{
-    using fluid_simulation::config::ApplicationConfig;
+#include <cmath>
 
-    InitWindow(ApplicationConfig::windowWidth,
-               ApplicationConfig::windowHeight,
-               ApplicationConfig::windowTitle);
-    SetTargetFPS(ApplicationConfig::defaultTargetFps);
+int main() {
+  using fluid_simulation::config::ApplicationConfig;
 
-    Image windowIcon = LoadImage("assets/icons/logo-32.png");
-    if (IsImageValid(windowIcon))
-    {
-        SetWindowIcon(windowIcon);
-        UnloadImage(windowIcon);
-    }
+  InitWindow(ApplicationConfig::windowWidth,
+             ApplicationConfig::windowHeight,
+             ApplicationConfig::windowTitle);
+  SetTargetFPS(ApplicationConfig::defaultTargetFps);
 
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
-        ClearBackground(BLACK);
-        DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
+  Image windowIcon = LoadImage("assets/icons/logo-32.png");
+  if (IsImageValid(windowIcon)) {
+    SetWindowIcon(windowIcon);
+    UnloadImage(windowIcon);
+  }
 
-        const char* fpsText = TextFormat("%d FPS", GetFPS());
-        const int fpsTextWidth = MeasureText(fpsText, 20);
-        DrawText(fpsText, GetScreenWidth() - fpsTextWidth - 16, 16, 20, LIGHTGRAY);
-        EndDrawing();
-    }
+  while (!WindowShouldClose()) {
+    const float frameTime = GetFrameTime();
+    const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
 
-    CloseWindow();
-    return 0;
+    BeginDrawing();
+    ClearBackground(BLACK);
+    DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
+
+    const char* fpsText = TextFormat("%d FPS", GetFPS());
+    const int fpsTextWidth = MeasureText(fpsText, 20);
+    DrawText(fpsText, GetScreenWidth() - fpsTextWidth - 16, 16, 20, LIGHTGRAY);
+
+    const char* frameTimeText = TextFormat("%.2f ms", frameTimeMilliseconds);
+    const int frameTimeTextWidth = MeasureText(frameTimeText, 20);
+    DrawText(frameTimeText, GetScreenWidth() - frameTimeTextWidth - 16, 40, 20, LIGHTGRAY);
+    EndDrawing();
+  }
+
+  CloseWindow();
+  return 0;
 }
