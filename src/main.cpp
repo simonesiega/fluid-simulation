@@ -13,7 +13,7 @@ int main() {
   SetWindowMinSize(ApplicationConfig::minimumWindowWidth, ApplicationConfig::minimumWindowHeight);
   SetTargetFPS(ApplicationConfig::defaultTargetFps);
 
-  Image windowIcon = LoadImage("assets/icons/logo-32.png");
+  Image windowIcon = LoadImage("assets/icons/logo-32-black.png");
   if (IsImageValid(windowIcon)) {
     SetWindowIcon(windowIcon);
     UnloadImage(windowIcon);

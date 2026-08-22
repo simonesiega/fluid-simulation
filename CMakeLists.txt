@@ -29,7 +29,7 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:fluid-simulation>/assets/icons"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/logo-32.png"
-            "$<TARGET_FILE_DIR:fluid-simulation>/assets/icons/logo-32.png"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/logo-32-black.png"
+            "$<TARGET_FILE_DIR:fluid-simulation>/assets/icons/logo-32-black.png"
     VERBATIM
 )
