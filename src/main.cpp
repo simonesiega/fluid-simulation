@@ -1,14 +1,15 @@
+#include "app/ApplicationConfig.hpp"
+
 #include <raylib.h>
 
 int main()
 {
-    constexpr int windowWidth = 1280;
-    constexpr int windowHeight = 720;
-    constexpr int targetFps = 60;
-    constexpr const char* windowTitle = "Fluid Simulation";
+    using fluid_simulation::config::ApplicationConfig;
 
-    InitWindow(windowWidth, windowHeight, windowTitle);
-    SetTargetFPS(targetFps);
+    InitWindow(ApplicationConfig::windowWidth,
+               ApplicationConfig::windowHeight,
+               ApplicationConfig::windowTitle);
+    SetTargetFPS(ApplicationConfig::defaultTargetFps);
 
     Image windowIcon = LoadImage("assets/icons/logo-32.png");
     if (IsImageValid(windowIcon))
@@ -21,7 +22,7 @@ int main()
     {
         BeginDrawing();
         ClearBackground(BLACK);
-        DrawText(windowTitle, 16, 16, 20, LIGHTGRAY);
+        DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
 
         const char* fpsText = TextFormat("%d FPS", GetFPS());
         const int fpsTextWidth = MeasureText(fpsText, 20);
