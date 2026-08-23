@@ -19,7 +19,13 @@ int main() {
     UnloadImage(windowIcon);
   }
 
+  bool isPause = false;
+
   while (!WindowShouldClose()) {
+    if (IsKeyPressed(KEY_SPACE)) {
+      isPause = !isPause;
+    }
+
     const float frameTime = GetFrameTime();
     const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
     const Vector2 mousePosition = GetMousePosition();
@@ -46,6 +52,10 @@ int main() {
     BeginDrawing();
     ClearBackground(BLACK);
     DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
+
+    const char* stateText = isPause ? "Paused" : "Running";
+    const int stateTextWidth = MeasureText(stateText, 20);
+    DrawText(stateText, (GetScreenWidth() - stateTextWidth) / 2, 16, 20, LIGHTGRAY);
 
     const char* fpsText = TextFormat("%d FPS", GetFPS());
     const int fpsTextWidth = MeasureText(fpsText, 20);
