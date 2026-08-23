@@ -38,6 +38,11 @@ int main() {
       viewportSize,
     };
 
+    const Vector2 normalizedMousePosition = {
+      (mousePosition.x - viewport.x) / viewport.width,
+      (mousePosition.y - viewport.y) / viewport.height,
+    };
+
     BeginDrawing();
     ClearBackground(BLACK);
     DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
@@ -50,7 +55,7 @@ int main() {
     const int frameTimeTextWidth = MeasureText(frameTimeText, 20);
     DrawText(frameTimeText, GetScreenWidth() - frameTimeTextWidth - 16, 40, 20, LIGHTGRAY);
 
-    const char* mousePositionText = TextFormat("Mouse: (%d, %d)", static_cast<int>(mousePosition.x), static_cast<int>(mousePosition.y));
+    const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", normalizedMousePosition.x, normalizedMousePosition.y);
     DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
     DrawRectangleLinesEx(viewport, ApplicationConfig::viewportBorderWidth, LIGHTGRAY);
