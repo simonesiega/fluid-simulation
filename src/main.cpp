@@ -22,6 +22,7 @@ int main() {
   while (!WindowShouldClose()) {
     const float frameTime = GetFrameTime();
     const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
+    const Vector2 mousePosition = GetMousePosition();
 
     const float screenWidth = static_cast<float>(GetScreenWidth());
     const float screenHeight = static_cast<float>(GetScreenHeight());
@@ -48,6 +49,9 @@ int main() {
     const char* frameTimeText = TextFormat("%.2f ms", frameTimeMilliseconds);
     const int frameTimeTextWidth = MeasureText(frameTimeText, 20);
     DrawText(frameTimeText, GetScreenWidth() - frameTimeTextWidth - 16, 40, 20, LIGHTGRAY);
+
+    const char* mousePositionText = TextFormat("Mouse: (%d, %d)", static_cast<int>(mousePosition.x), static_cast<int>(mousePosition.y));
+    DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
     DrawRectangleLinesEx(viewport, ApplicationConfig::viewportBorderWidth, LIGHTGRAY);
     EndDrawing();
