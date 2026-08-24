@@ -8,27 +8,52 @@
 namespace {
 using fluid_simulation::config::ApplicationConfig;
 
-constexpr float brushPreviewRadius = 24.0F;
+constexpr float defaultBrushPreviewRadius = 24.0F;
 constexpr float resetIndicatorDuration = 0.75F;
 
-void HandleInput(bool& isPause, bool& resetRequested, Vector2& mousePosition) {
+// Runtime values shared by the input, update, and render phases.
+struct ApplicationState {
+  bool isPause = false;
+  bool resetRequested = false;
+  float brushPreviewRadius = defaultBrushPreviewRadius;
+  float frameTime = 0.0F;
+  float resetIndicatorTimeRemaining = 0.0F;
+  Vector2 mousePosition{};
+};
+
+/**
+ * @brief Captures keyboard and mouse input for the current frame.
+ * @param state Application state updated with input events and the mouse position.
+ * @return Nothing.
+ */
+void HandleInput(ApplicationState& state) {
   if (IsKeyPressed(KEY_SPACE)) {
-    isPause = !isPause;
+    state.isPause = !state.isPause;
   }
 
-  resetRequested = IsKeyPressed(KEY_R);
-  mousePosition = GetMousePosition();
+  state.resetRequested = IsKeyPressed(KEY_R);
+  state.mousePosition = GetMousePosition();
 }
 
-void Update(float frameTime, bool resetRequested, float& resetIndicatorTimeRemaining) {
-  if (resetRequested) {
-    resetIndicatorTimeRemaining = resetIndicatorDuration;
+/**
+ * @brief Advances temporary application state using the current frame time.
+ * @param state Application state containing timing and reset indicator values.
+ * @return Nothing.
+ */
+void Update(ApplicationState& state) {
+  if (state.resetRequested) {
+    state.resetIndicatorTimeRemaining = resetIndicatorDuration;
   } else {
-    resetIndicatorTimeRemaining = std::max(0.0F, resetIndicatorTimeRemaining - frameTime);
+    state.resetIndicatorTimeRemaining = std::max(0.0F, state.resetIndicatorTimeRemaining - state.frameTime);
   }
 }
 
-void Render(float frameTimeMilliseconds, bool isPause, float resetIndicatorTimeRemaining, const Vector2& mousePosition) {
+/**
+ * @brief Draws the HUD, responsive viewport, and brush preview.
+ * @param state Application state to render without modification.
+ * @return Nothing.
+ */
+void Render(const ApplicationState& state) {
   const float screenWidth = static_cast<float>(GetScreenWidth());
   const float screenHeight = static_cast<float>(GetScreenHeight());
   const float availableViewportWidth = std::max(0.0F, screenWidth - 2.0F * ApplicationConfig::viewportMargin);
@@ -43,20 +68,21 @@ void Render(float frameTimeMilliseconds, bool isPause, float resetIndicatorTimeR
     viewportSize,
   };
 
+  // Convert the cursor to viewport coordinates without clamping out-of-bounds values.
   const Vector2 normalizedMousePosition = {
-    (mousePosition.x - viewport.x) / viewport.width,
-    (mousePosition.y - viewport.y) / viewport.height,
+    (state.mousePosition.x - viewport.x) / viewport.width,
+    (state.mousePosition.y - viewport.y) / viewport.height,
   };
 
   BeginDrawing();
   ClearBackground(BLACK);
   DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
 
-  const char* stateText = isPause ? "Paused" : "Running";
+  const char* stateText = state.isPause ? "Paused" : "Running";
   const int stateTextWidth = MeasureText(stateText, 20);
   DrawText(stateText, (GetScreenWidth() - stateTextWidth) / 2, 16, 20, LIGHTGRAY);
 
-  if (resetIndicatorTimeRemaining > 0.0F) {
+  if (state.resetIndicatorTimeRemaining > 0.0F) {
     const char* resetText = "Reset";
     const int resetTextWidth = MeasureText(resetText, 20);
     DrawText(resetText, (GetScreenWidth() - resetTextWidth) / 2, 40, 20, LIGHTGRAY);
@@ -66,6 +92,7 @@ void Render(float frameTimeMilliseconds, bool isPause, float resetIndicatorTimeR
   const int fpsTextWidth = MeasureText(fpsText, 20);
   DrawText(fpsText, GetScreenWidth() - fpsTextWidth - 16, 16, 20, LIGHTGRAY);
 
+  const float frameTimeMilliseconds = std::isfinite(state.frameTime) ? state.frameTime * 1000.0F : 0.0F;
   const char* frameTimeText = TextFormat("%.2f ms", frameTimeMilliseconds);
   const int frameTimeTextWidth = MeasureText(frameTimeText, 20);
   DrawText(frameTimeText, GetScreenWidth() - frameTimeTextWidth - 16, 40, 20, LIGHTGRAY);
@@ -73,12 +100,13 @@ void Render(float frameTimeMilliseconds, bool isPause, float resetIndicatorTimeR
   const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", normalizedMousePosition.x, normalizedMousePosition.y);
   DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
-  if (CheckCollisionPointRec(mousePosition, viewport)) {
+  if (CheckCollisionPointRec(state.mousePosition, viewport)) {
+    // Prevent the brush outline from drawing across the viewport border.
     BeginScissorMode(static_cast<int>(viewport.x),
                      static_cast<int>(viewport.y),
                      static_cast<int>(viewport.width),
                      static_cast<int>(viewport.height));
-    DrawCircleLinesV(mousePosition, brushPreviewRadius, LIGHTGRAY);
+    DrawCircleLinesV(state.mousePosition, state.brushPreviewRadius, LIGHTGRAY);
     EndScissorMode();
   }
 
@@ -87,6 +115,10 @@ void Render(float frameTimeMilliseconds, bool isPause, float resetIndicatorTimeR
 }
 } // namespace
 
+/**
+ * @brief Initializes the window and runs the application frame loop.
+ * @return Zero when the application exits normally.
+ */
 int main() {
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
   InitWindow(ApplicationConfig::windowWidth, ApplicationConfig::windowHeight, ApplicationConfig::windowTitle);
@@ -99,18 +131,15 @@ int main() {
     UnloadImage(windowIcon);
   }
 
-  bool isPause = false;
-  bool resetRequested = false;
-  float resetIndicatorTimeRemaining = 0.0F;
-  Vector2 mousePosition{};
+  ApplicationState state;
 
   while (!WindowShouldClose()) {
-    const float frameTime = GetFrameTime();
-    const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
+    // Record timing before running the frame's input, update, and render phases.
+    state.frameTime = GetFrameTime();
 
-    HandleInput(isPause, resetRequested, mousePosition);
-    Update(frameTime, resetRequested, resetIndicatorTimeRemaining);
-    Render(frameTimeMilliseconds, isPause, resetIndicatorTimeRemaining, mousePosition);
+    HandleInput(state);
+    Update(state);
+    Render(state);
   }
 
   CloseWindow();
