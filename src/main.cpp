@@ -20,14 +20,23 @@ int main() {
   }
 
   bool isPause = false;
+  float resetIndicatorTimeRemaining = 0.0F;
 
   while (!WindowShouldClose()) {
+    const float frameTime = GetFrameTime();
+    const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
+
     if (IsKeyPressed(KEY_SPACE)) {
       isPause = !isPause;
     }
 
-    const float frameTime = GetFrameTime();
-    const float frameTimeMilliseconds = std::isfinite(frameTime) ? frameTime * 1000.0F : 0.0F;
+    const bool resetRequested = IsKeyPressed(KEY_R);
+    if (resetRequested) {
+      resetIndicatorTimeRemaining = 0.75F;
+    } else {
+      resetIndicatorTimeRemaining = std::max(0.0F, resetIndicatorTimeRemaining - frameTime);
+    }
+
     const Vector2 mousePosition = GetMousePosition();
 
     const float screenWidth = static_cast<float>(GetScreenWidth());
@@ -56,6 +65,12 @@ int main() {
     const char* stateText = isPause ? "Paused" : "Running";
     const int stateTextWidth = MeasureText(stateText, 20);
     DrawText(stateText, (GetScreenWidth() - stateTextWidth) / 2, 16, 20, LIGHTGRAY);
+
+    if (resetIndicatorTimeRemaining > 0.0F) {
+      const char* resetText = "Reset";
+      const int resetTextWidth = MeasureText(resetText, 20);
+      DrawText(resetText, (GetScreenWidth() - resetTextWidth) / 2, 40, 20, LIGHTGRAY);
+    }
 
     const char* fpsText = TextFormat("%d FPS", GetFPS());
     const int fpsTextWidth = MeasureText(fpsText, 20);
