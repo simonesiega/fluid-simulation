@@ -36,7 +36,7 @@ End state: a stable interactive CPU fluid simulation exists.
 
 Render the CPU fields efficiently, add runtime controls/presets/HUD, and establish deterministic CPU timing and benchmark behavior.
 
-End state: the reference backend is usable, measurable, and documented.
+End state: the reference backend is usable, measurable, and ready to serve as the baseline for GPU implementations.
 
 ## Phase 5 — OpenGL compute foundation
 
@@ -64,17 +64,11 @@ End state: the application feels like a finished interactive demo rather than a 
 
 ## Phase 8 — Correctness, robustness, and performance evidence
 
-Add deterministic tests, backend parity/sanity checks, failure handling, stable timing, and reproducible benchmark methodology.
+Add deterministic tests, CPU/OpenGL parity and sanity checks, failure handling, stable timing, and reproducible benchmark methodology. Clean up the codebase before introducing the additional CUDA backend.
 
-End state: correctness claims and performance comparisons have evidence.
+End state: the CPU and OpenGL implementations are reliable, measurable, and provide a trustworthy reference for CUDA development.
 
-## Phase 9 — Documentation and demo media
-
-Create the technical documentation, screenshots, recording, optimized README GIF, architecture explanation, controls, build guide, and learning story.
-
-End state: a new visitor can understand the project without reading the source first.
-
-## Phase 10 — NVIDIA CUDA backend
+## Phase 9 — NVIDIA CUDA backend and backend comparison
 
 Add CUDA as an optional NVIDIA-specific implementation of the same solver:
 - optional CUDA CMake path;
@@ -82,17 +76,36 @@ Add CUDA as an optional NVIDIA-specific implementation of the same solver:
 - equivalent solver kernels;
 - CUDA/OpenGL interoperability;
 - backend selection;
-- parity checks;
-- OpenGL Compute vs CUDA benchmarking.
+- CUDA parity and sanity checks;
+- CPU/OpenGL Compute/CUDA benchmarking under equivalent settings.
 
-CUDA must remain optional. Non-CUDA builds must continue to work.
+CUDA must remain optional. Non-CUDA builds must continue to configure, build, and run normally.
 
-End state: NVIDIA hardware can run both GPU approaches under equivalent settings.
+End state: supported NVIDIA hardware can run CPU, OpenGL Compute, and CUDA backends under equivalent settings, with reproducible measurements for all three.
 
-## Phase 11 — CI, packaging, and v1.0.0 release
+## Phase 10 — Final documentation and demo media
+
+Create the final project documentation only after all three backends are complete:
+- final README structure;
+- architecture guide covering CPU, OpenGL Compute, and CUDA;
+- fluid-math guide;
+- OpenGL compute guide;
+- CUDA guide;
+- backend comparison;
+- build and troubleshooting guide;
+- controls and presets reference;
+- final three-backend benchmark results;
+- screenshots;
+- demo recording;
+- optimized README GIF/WebP;
+- learning story and technical trade-offs.
+
+End state: a new visitor can understand the finished project, its three-backend architecture, measured performance, controls, build requirements, and engineering story without reading the source first.
+
+## Phase 11 — CI, packaging, and v0.0.1 release
 
 Add automated portable builds/tests, CUDA compile validation, runtime-resource packaging, Windows x64 release layout, GitHub release automation, notices, release docs, and final manual validation.
 
-End state: `v1.0.0` is public and downloadable with verified release assets.
+End state: `v0.0.1` is public and downloadable with verified release assets.
 
-Do not expand v1.0 scope with these unless the user explicitly changes the plan.
+Do not expand v0.0.1 scope with additional simulation features unless the user explicitly changes the plan.

@@ -35,6 +35,20 @@ The roadmap describes the intended sequence, but it does not track live progress
 
 If the user names a phase, milestone, or roadmap step, work within that scope. If the prompt is specific enough, do not ask for a current-phase update.
 
+## Reference repositories
+
+Additional repositories may be cloned under `.context/` to provide local implementation context.
+
+Do **not** inspect or load `.context/` by default. Only use reference repositories when the user explicitly mentions another repository/project or directly asks how another project solves a problem, implements a pattern, or structures similar functionality. This keeps unrelated repository context out of normal tasks.
+
+When that condition applies, inspect `.context/` first before looking elsewhere.
+
+Known useful references include:
+- [raylib](https://github.com/raysan5/raylib)
+
+Other repositories may also be present in `.context/`; inspect the directory only when the user's request makes broader reference examples relevant.
+
+
 ## Working rules
 
 - Keep changes small and focused.

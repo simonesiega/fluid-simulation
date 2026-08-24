@@ -1,105 +1,68 @@
 # GPU skill
 
-Use this skill for OpenGL, GLSL compute shaders, CUDA, GPU resources, synchronization, and GPU backend work.
+Use this skill for OpenGL 4.3 compute shaders, GLSL, GPU resource ownership, dispatch, synchronization, CUDA kernels, CUDA/OpenGL interoperability, and GPU backend behavior.
 
-## Backend goals
+Do not use GPU implementation choices to redefine the solver. The CPU backend remains the reference for semantics.
+
+## Backend contract
 
 - OpenGL Compute is the portable GPU backend.
 - CUDA is an optional NVIDIA-specific backend.
-- The CPU solver remains the reference implementation.
-- Keep simulation data resident on the GPU whenever practical.
-- Match solver semantics across backends before optimizing.
+- Match CPU behavior before optimizing.
+- Keep full simulation fields GPU-resident whenever practical.
+- Avoid full per-frame CPU readback; only move small diagnostics/results when needed.
+- A selected GPU backend must actually execute that backend rather than silently falling back to CPU simulation.
 
-## Preferred resource layout
+## Shared semantics
 
-Use GPU resources according to access pattern rather than convenience.
+CPU, OpenGL Compute, and CUDA should agree where practical on:
 
-### Textures / images
+- grid dimensions and coordinate conventions;
+- brush footprint and injection scaling;
+- timestep and solver parameters;
+- interpolation/backtracing rules;
+- pressure/diffusion iteration semantics;
+- dissipation/damping;
+- boundaries and obstacles;
+- logical solver pass order.
 
-Prefer textures or image load/store when:
-- 2D spatial sampling is important;
-- bilinear filtering is useful for advection;
-- the data naturally represents a 2D field;
-- the same resource is also convenient for visualization.
+Floating-point results may differ; behavior and invariants should remain comparable.
 
-Likely candidates:
-- velocity field;
-- RGB dye field;
-- visualization/display texture.
+## OpenGL Compute
 
-### SSBOs / linear buffers
+- Require/detect OpenGL 4.3 compute capability before enabling the backend.
+- Surface useful shader compile/link/load errors with the relevant shader name.
+- Keep one main numerical responsibility per compute shader.
+- Use work-group sizes deliberately; dispatch enough groups to cover the grid and guard out-of-range invocations in the shader.
+- Keep image/buffer bindings and uniforms explicit and easy to trace.
+- Use ping-pong resources whenever a pass requires the previous state.
+- Insert the narrowest correct memory barrier before dependent compute/render operations.
+- Do not use `glFinish` as normal synchronization.
 
-Prefer SSBOs or CUDA linear device buffers when:
-- access is explicit and index-based;
-- filtering is not needed;
-- the data is scalar/scratch/intermediate state;
-- linear memory makes parity or CUDA sharing clearer.
+### Resource choice
 
-Likely candidates:
-- pressure;
-- divergence;
-- curl/vorticity;
-- temporary/debug buffers.
+Choose representation from the actual access pattern and existing architecture:
 
-This is a default convention, not a hard rule. Change it only when profiling or implementation clarity gives a concrete reason.
+- textures/images are a strong default for 2D fields that need spatial sampling, interpolation, or direct visualization;
+- SSBOs/linear buffers can be appropriate for explicit index-based scalar/scratch data.
 
-## Ping-pong resources
+Do not migrate a field between representations without a concrete correctness, clarity, interoperability, or measured-performance reason.
 
-Never read from and write to the same field in a pass when the algorithm requires the previous state.
+## CUDA
 
-Use clearly paired resources, for example:
-
-```text
-velocity_a / velocity_b
-dye_a      / dye_b
-pressure_a / pressure_b
-```
-
-Swap logical source/destination handles after each pass or iteration rather than copying buffers.
-
-## Shader naming
-
-Keep one main responsibility per compute shader.
-
-Preferred naming:
-
-```text
-inject_dye.comp
-inject_velocity.comp
-advect_velocity.comp
-advect_dye.comp
-diffuse_velocity.comp
-diffuse_dye.comp
-divergence.comp
-pressure.comp
-gradient.comp
-vorticity.comp
-vorticity_confinement.comp
-boundary.comp
-```
-
-Name CUDA kernels/functions using the same conceptual vocabulary where practical so backend comparison stays easy.
-
-## Synchronization
-
-- Use explicit OpenGL memory barriers where subsequent passes depend on previous writes.
-- Check shader compilation/linking errors and surface useful diagnostics.
-- Check CUDA API and kernel-launch errors.
-- Avoid `glFinish`, device-wide synchronization, or CPU readback unless required for correctness, diagnostics, or measurement.
+- Keep CUDA code isolated behind the optional CUDA build/backend path.
+- Use explicit ownership and cleanup for device resources.
+- Check CUDA runtime calls and kernel launches with actionable diagnostics.
+- Use the same conceptual pass/kernel vocabulary as CPU/OpenGL where practical.
+- Preserve source/destination separation for iterative/advection operations.
+- Do not introduce device-wide synchronization in the steady-state loop unless correctness or measurement requires it.
+- For CUDA/OpenGL interop, make registration, mapping, access, unmapping, and destruction lifetimes explicit and balanced.
+- Unsupported systems must hide/disable CUDA cleanly without breaking CPU/OpenGL use.
 
 ## Performance
 
-Measure before optimizing.
+Correctness and parity come first.
 
-When reporting results, include:
-- hardware;
-- backend;
-- grid size;
-- Release build configuration;
-- timestep and relevant solver settings;
-- pressure/diffusion iteration counts;
-- warm-up method;
-- number of measured frames/steps;
-- metric being reported.
+For performance claims, use the testing/benchmarking skill. Prefer GPU-appropriate timing (for example OpenGL timer queries or CUDA events when implemented) rather than treating CPU dispatch-call duration as GPU execution time.
 
-Never invent performance data.
+Never invent a speedup or infer one from visual smoothness alone.

@@ -43,6 +43,8 @@
 build/
 Build/
 build-*/
+!/.agents/skills/build/
+!/.agents/skills/build/SKILL.md
 
 # CMake generated files
 CMakeFiles/
@@ -66,4 +68,11 @@ vcpkg_installed/
 
 # test output & cache
 Testing/
+!/.agents/skills/testing/
+!/.agents/skills/testing/SKILL.md
 .cache/
+
+# agents
+.context/*
+!.context/.gitkeep
+
