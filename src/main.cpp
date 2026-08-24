@@ -19,6 +19,8 @@ int main() {
     UnloadImage(windowIcon);
   }
 
+  constexpr float brushPreviewRadius = 24.0F;
+
   bool isPause = false;
   float resetIndicatorTimeRemaining = 0.0F;
 
@@ -82,6 +84,15 @@ int main() {
 
     const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", normalizedMousePosition.x, normalizedMousePosition.y);
     DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
+
+    if (CheckCollisionPointRec(mousePosition, viewport)) {
+      BeginScissorMode(static_cast<int>(viewport.x),
+                       static_cast<int>(viewport.y),
+                       static_cast<int>(viewport.width),
+                       static_cast<int>(viewport.height));
+      DrawCircleLinesV(mousePosition, brushPreviewRadius, LIGHTGRAY);
+      EndScissorMode();
+    }
 
     DrawRectangleLinesEx(viewport, ApplicationConfig::viewportBorderWidth, LIGHTGRAY);
     EndDrawing();
