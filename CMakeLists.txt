@@ -17,11 +17,15 @@ FetchContent_MakeAvailable(raylib)
 
 add_executable(fluid-simulation
     src/app/ApplicationConfig.hpp
+    src/simulation/cpu/ScalarField.cpp
+    src/simulation/cpu/ScalarField.hpp
     src/simulation/SimulationSettings.hpp
     src/main.cpp
 )
 
 target_compile_features(fluid-simulation PRIVATE cxx_std_20)
+
+target_include_directories(fluid-simulation PRIVATE src)
 
 target_link_libraries(fluid-simulation PRIVATE raylib)
 
