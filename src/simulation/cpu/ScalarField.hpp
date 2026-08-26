@@ -4,6 +4,9 @@
 #include <vector>
 
 namespace fluid_simulation::simulation::cpu {
+/**
+ * @brief Owns a contiguous, two-dimensional field of scalar values.
+ */
 class ScalarField final {
 public:
   /**

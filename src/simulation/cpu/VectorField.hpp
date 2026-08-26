@@ -4,11 +4,17 @@
 #include <vector>
 
 namespace fluid_simulation::simulation::cpu {
+/**
+ * @brief Stores the two floating-point components of one vector-field cell.
+ */
 struct Vector2f {
   float x = 0.0F;
   float y = 0.0F;
 };
 
+/**
+ * @brief Owns a contiguous, two-dimensional field of two-component values.
+ */
 class VectorField final {
 public:
   /**
