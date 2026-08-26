@@ -1,4 +1,5 @@
 #include "app/ApplicationConfig.hpp"
+#include "simulation/SimulationSettings.hpp"
 
 #include <raylib.h>
 
@@ -7,15 +8,14 @@
 
 namespace {
 using fluid_simulation::config::ApplicationConfig;
+using fluid_simulation::simulation::SimulationSettings;
 
-constexpr float defaultBrushPreviewRadius = 24.0F;
 constexpr float resetIndicatorDuration = 0.75F;
 
 // Runtime values shared by the input, update, and render phases.
 struct ApplicationState {
   bool isPause = false;
   bool resetRequested = false;
-  float brushPreviewRadius = defaultBrushPreviewRadius;
   float frameTime = 0.0F;
   float resetIndicatorTimeRemaining = 0.0F;
   Vector2 mousePosition{};
@@ -51,9 +51,10 @@ void Update(ApplicationState& state) {
 /**
  * @brief Draws the HUD, responsive viewport, and brush preview.
  * @param state Application state to render without modification.
+ * @param settings Simulation settings that control the brush preview.
  * @return Nothing.
  */
-void Render(const ApplicationState& state) {
+void Render(const ApplicationState& state, const SimulationSettings& settings) {
   const float screenWidth = static_cast<float>(GetScreenWidth());
   const float screenHeight = static_cast<float>(GetScreenHeight());
   const float availableViewportWidth = std::max(0.0F, screenWidth - 2.0F * ApplicationConfig::viewportMargin);
@@ -106,7 +107,8 @@ void Render(const ApplicationState& state) {
                      static_cast<int>(viewport.y),
                      static_cast<int>(viewport.width),
                      static_cast<int>(viewport.height));
-    DrawCircleLinesV(state.mousePosition, state.brushPreviewRadius, LIGHTGRAY);
+    const float brushPreviewRadius = settings.brushRadius * viewport.width;
+    DrawCircleLinesV(state.mousePosition, brushPreviewRadius, LIGHTGRAY);
     EndScissorMode();
   }
 
@@ -132,6 +134,7 @@ int main() {
   }
 
   ApplicationState state;
+  SimulationSettings simulationSettings;
 
   while (!WindowShouldClose()) {
     // Record timing before running the frame's input, update, and render phases.
@@ -139,7 +142,7 @@ int main() {
 
     HandleInput(state);
     Update(state);
-    Render(state);
+    Render(state, simulationSettings);
   }
 
   CloseWindow();

@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(raylib)
 
 add_executable(fluid-simulation
     src/app/ApplicationConfig.hpp
+    src/simulation/SimulationSettings.hpp
     src/main.cpp
 )
 
