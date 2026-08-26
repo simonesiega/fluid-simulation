@@ -19,6 +19,8 @@ add_executable(fluid-simulation
     src/app/ApplicationConfig.hpp
     src/simulation/cpu/ScalarField.cpp
     src/simulation/cpu/ScalarField.hpp
+    src/simulation/cpu/VectorField.cpp
+    src/simulation/cpu/VectorField.hpp
     src/simulation/SimulationSettings.hpp
     src/main.cpp
 )
