@@ -33,8 +33,7 @@ SimulationCPU::SimulationCPU(const SimulationSettings& settings)
  * @param height Number of rows shared by all fields.
  */
 SimulationCPU::SimulationCPU(std::size_t width, std::size_t height)
-    : density_(width, height), velocity_(width, height), pressure_(width, height), divergence_(width, height),
-      densityScratch_(width, height), velocityScratch_(width, height), pressureScratch_(width, height) {
+    : densityBuffers_(width, height), velocityBuffers_(width, height), pressureBuffers_(width, height), divergence_(width, height) {
 }
 
 /**
@@ -42,7 +41,7 @@ SimulationCPU::SimulationCPU(std::size_t width, std::size_t height)
  * @return Number of columns in every simulation field.
  */
 std::size_t SimulationCPU::Width() const noexcept {
-  return density_.Width();
+  return densityBuffers_.Source().Width();
 }
 
 /**
@@ -50,7 +49,7 @@ std::size_t SimulationCPU::Width() const noexcept {
  * @return Number of rows in every simulation field.
  */
 std::size_t SimulationCPU::Height() const noexcept {
-  return density_.Height();
+  return densityBuffers_.Source().Height();
 }
 
 /**
@@ -58,7 +57,7 @@ std::size_t SimulationCPU::Height() const noexcept {
  * @return Density field.
  */
 ScalarField& SimulationCPU::Density() noexcept {
-  return density_;
+  return densityBuffers_.Source();
 }
 
 /**
@@ -66,7 +65,7 @@ ScalarField& SimulationCPU::Density() noexcept {
  * @return Density field.
  */
 const ScalarField& SimulationCPU::Density() const noexcept {
-  return density_;
+  return densityBuffers_.Source();
 }
 
 /**
@@ -74,7 +73,7 @@ const ScalarField& SimulationCPU::Density() const noexcept {
  * @return Velocity field.
  */
 VectorField& SimulationCPU::Velocity() noexcept {
-  return velocity_;
+  return velocityBuffers_.Source();
 }
 
 /**
@@ -82,7 +81,7 @@ VectorField& SimulationCPU::Velocity() noexcept {
  * @return Velocity field.
  */
 const VectorField& SimulationCPU::Velocity() const noexcept {
-  return velocity_;
+  return velocityBuffers_.Source();
 }
 
 /**
@@ -90,7 +89,7 @@ const VectorField& SimulationCPU::Velocity() const noexcept {
  * @return Pressure field.
  */
 ScalarField& SimulationCPU::Pressure() noexcept {
-  return pressure_;
+  return pressureBuffers_.Source();
 }
 
 /**
@@ -98,7 +97,7 @@ ScalarField& SimulationCPU::Pressure() noexcept {
  * @return Pressure field.
  */
 const ScalarField& SimulationCPU::Pressure() const noexcept {
-  return pressure_;
+  return pressureBuffers_.Source();
 }
 
 /**
@@ -122,7 +121,7 @@ const ScalarField& SimulationCPU::Divergence() const noexcept {
  * @return Density scratch field.
  */
 ScalarField& SimulationCPU::DensityScratch() noexcept {
-  return densityScratch_;
+  return densityBuffers_.Destination();
 }
 
 /**
@@ -130,7 +129,7 @@ ScalarField& SimulationCPU::DensityScratch() noexcept {
  * @return Density scratch field.
  */
 const ScalarField& SimulationCPU::DensityScratch() const noexcept {
-  return densityScratch_;
+  return densityBuffers_.Destination();
 }
 
 /**
@@ -138,7 +137,7 @@ const ScalarField& SimulationCPU::DensityScratch() const noexcept {
  * @return Velocity scratch field.
  */
 VectorField& SimulationCPU::VelocityScratch() noexcept {
-  return velocityScratch_;
+  return velocityBuffers_.Destination();
 }
 
 /**
@@ -146,7 +145,7 @@ VectorField& SimulationCPU::VelocityScratch() noexcept {
  * @return Velocity scratch field.
  */
 const VectorField& SimulationCPU::VelocityScratch() const noexcept {
-  return velocityScratch_;
+  return velocityBuffers_.Destination();
 }
 
 /**
@@ -154,7 +153,7 @@ const VectorField& SimulationCPU::VelocityScratch() const noexcept {
  * @return Pressure scratch field.
  */
 ScalarField& SimulationCPU::PressureScratch() noexcept {
-  return pressureScratch_;
+  return pressureBuffers_.Destination();
 }
 
 /**
@@ -162,6 +161,30 @@ ScalarField& SimulationCPU::PressureScratch() noexcept {
  * @return Pressure scratch field.
  */
 const ScalarField& SimulationCPU::PressureScratch() const noexcept {
-  return pressureScratch_;
+  return pressureBuffers_.Destination();
+}
+
+/**
+ * @brief Exchanges the logical density source and destination fields.
+ * @return Nothing.
+ */
+void SimulationCPU::SwapDensityBuffers() noexcept {
+  densityBuffers_.Swap();
+}
+
+/**
+ * @brief Exchanges the logical velocity source and destination fields.
+ * @return Nothing.
+ */
+void SimulationCPU::SwapVelocityBuffers() noexcept {
+  velocityBuffers_.Swap();
+}
+
+/**
+ * @brief Exchanges the logical pressure source and destination fields.
+ * @return Nothing.
+ */
+void SimulationCPU::SwapPressureBuffers() noexcept {
+  pressureBuffers_.Swap();
 }
 } // namespace fluid_simulation::simulation::cpu

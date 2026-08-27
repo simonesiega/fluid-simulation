@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simulation/SimulationSettings.hpp"
+#include "simulation/cpu/PingPongField.hpp"
 #include "simulation/cpu/ScalarField.hpp"
 #include "simulation/cpu/VectorField.hpp"
 
@@ -8,7 +9,7 @@
 
 namespace fluid_simulation::simulation::cpu {
 /**
- * @brief Owns the CPU fields and scratch buffers used by the fluid simulation.
+ * @brief Owns the CPU fields and source/destination buffers used by the fluid simulation.
  */
 class SimulationCPU final {
 public:
@@ -114,6 +115,24 @@ public:
    */
   [[nodiscard]] const ScalarField& PressureScratch() const noexcept;
 
+  /**
+   * @brief Exchanges the logical density source and destination fields.
+   * @return Nothing.
+   */
+  void SwapDensityBuffers() noexcept;
+
+  /**
+   * @brief Exchanges the logical velocity source and destination fields.
+   * @return Nothing.
+   */
+  void SwapVelocityBuffers() noexcept;
+
+  /**
+   * @brief Exchanges the logical pressure source and destination fields.
+   * @return Nothing.
+   */
+  void SwapPressureBuffers() noexcept;
+
 private:
   /**
    * @brief Initializes every owned field with validated grid dimensions.
@@ -122,12 +141,9 @@ private:
    */
   SimulationCPU(std::size_t width, std::size_t height);
 
-  ScalarField density_;
-  VectorField velocity_;
-  ScalarField pressure_;
+  PingPongField<ScalarField> densityBuffers_;
+  PingPongField<VectorField> velocityBuffers_;
+  PingPongField<ScalarField> pressureBuffers_;
   ScalarField divergence_;
-  ScalarField densityScratch_;
-  VectorField velocityScratch_;
-  ScalarField pressureScratch_;
 };
 } // namespace fluid_simulation::simulation::cpu
