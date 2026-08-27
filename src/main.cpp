@@ -20,6 +20,9 @@ using fluid_simulation::simulation::cpu::Vector2f;
 using fluid_simulation::simulation::cpu::VectorField;
 
 constexpr float resetIndicatorDuration = 0.75F;
+constexpr std::size_t velocityDebugStride = 4;
+constexpr float velocityDebugScale = 1.0F;
+constexpr float velocityDebugMinimumMagnitudeSquared = 0.0001F;
 
 // Runtime values shared by the input, update, and render phases.
 struct ApplicationState {
@@ -208,16 +211,64 @@ void RenderScalarField(const ScalarField& field, const Rectangle& viewport) {
 }
 
 /**
- * @brief Draws the scalar field, HUD, responsive viewport, and brush preview.
+ * @brief Draws sampled velocity vectors from their grid-cell centers.
+ * @param field Velocity field to visualize without modification.
+ * @param viewport Screen-space rectangle occupied by the field.
+ * @return Nothing.
+ */
+void RenderVelocityField(const VectorField& field, const Rectangle& viewport) {
+  const std::size_t width = field.Width();
+  const std::size_t height = field.Height();
+  const float cellWidth = viewport.width / static_cast<float>(width);
+  const float cellHeight = viewport.height / static_cast<float>(height);
+
+  BeginScissorMode(static_cast<int>(viewport.x),
+                   static_cast<int>(viewport.y),
+                   static_cast<int>(viewport.width),
+                   static_cast<int>(viewport.height));
+
+  for (std::size_t y = 0; y < height; y += velocityDebugStride) {
+    for (std::size_t x = 0; x < width; x += velocityDebugStride) {
+      const Vector2f& velocity = field.At(x, y);
+      if (!std::isfinite(velocity.x) || !std::isfinite(velocity.y)) {
+        continue;
+      }
+
+      const float magnitudeSquared = velocity.x * velocity.x + velocity.y * velocity.y;
+      if (magnitudeSquared <= velocityDebugMinimumMagnitudeSquared) {
+        continue;
+      }
+
+      const Vector2 start = {
+        viewport.x + (static_cast<float>(x) + 0.5F) * cellWidth,
+        viewport.y + (static_cast<float>(y) + 0.5F) * cellHeight,
+      };
+      const Vector2 end = {
+        start.x + velocity.x * velocityDebugScale,
+        start.y + velocity.y * velocityDebugScale,
+      };
+
+      if (std::isfinite(end.x) && std::isfinite(end.y)) {
+        DrawLineV(start, end, RED);
+      }
+    }
+  }
+
+  EndScissorMode();
+}
+
+/**
+ * @brief Draws debug fields, the HUD, responsive viewport, and brush preview.
  * @param state Application state to render without modification.
  * @param settings Simulation settings that control the brush preview.
- * @param simulation CPU simulation containing the scalar field to visualize.
+ * @param simulation CPU simulation containing the fields to visualize.
  * @return Nothing.
  */
 void Render(const ApplicationState& state, const SimulationSettings& settings, const SimulationCPU& simulation) {
   BeginDrawing();
   ClearBackground(BLACK);
   RenderScalarField(simulation.Density(), state.viewport);
+  RenderVelocityField(simulation.Velocity(), state.viewport);
 
   DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
 
