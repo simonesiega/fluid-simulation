@@ -23,6 +23,8 @@ constexpr float resetIndicatorDuration = 0.75F;
 struct ApplicationState {
   bool isPause = false;
   bool resetRequested = false;
+  bool isLeftMouseButtonDown = false;
+  bool mouseInsideViewport = false;
   float frameTime = 0.0F;
   float resetIndicatorTimeRemaining = 0.0F;
   Vector2 mousePosition{};
@@ -42,16 +44,53 @@ void HandleInput(ApplicationState& state) {
   }
 
   state.resetRequested = IsKeyPressed(KEY_R);
+  state.isLeftMouseButtonDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
   state.mousePosition = GetMousePosition();
 }
 
 /**
- * @brief Advances temporary application state and maps the cursor to the simulation grid.
- * @param state Application state containing timing, viewport, and cursor values.
- * @param simulation CPU simulation that provides the active grid dimensions.
+ * @brief Adds density to a hard-edged square region around one grid cell.
+ * @param simulation CPU simulation containing the density field to modify.
+ * @param settings Simulation settings that define brush radius and density strength.
+ * @param center Grid cell at the center of the square brush.
  * @return Nothing.
  */
-void Update(ApplicationState& state, const SimulationCPU& simulation) {
+void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings, const GridCoordinates& center) {
+  if (!std::isfinite(settings.brushDensity) || settings.brushDensity <= 0.0F) {
+    return;
+  }
+
+  // Convert the normalized radius independently for each grid axis.
+  const float normalizedRadius = std::isfinite(settings.brushRadius) ? std::clamp(settings.brushRadius, 0.0F, 1.0F) : 0.0F;
+  const std::size_t width = simulation.Width();
+  const std::size_t height = simulation.Height();
+  const std::size_t radiusX = static_cast<std::size_t>(normalizedRadius * static_cast<float>(width));
+  const std::size_t radiusY = static_cast<std::size_t>(normalizedRadius * static_cast<float>(height));
+
+  // Limit the square brush to valid cells near every grid edge and corner.
+  const std::size_t minimumX = center.x - std::min(center.x, radiusX);
+  const std::size_t maximumX = center.x + std::min(width - 1 - center.x, radiusX);
+  const std::size_t minimumY = center.y - std::min(center.y, radiusY);
+  const std::size_t maximumY = center.y + std::min(height - 1 - center.y, radiusY);
+  ScalarField& density = simulation.Density();
+
+  for (std::size_t y = minimumY; y <= maximumY; ++y) {
+    for (std::size_t x = minimumX; x <= maximumX; ++x) {
+      float& value = density.At(x, y);
+      // Holding the button accumulates density instead of replacing the current value.
+      value += settings.brushDensity;
+    }
+  }
+}
+
+/**
+ * @brief Advances application state, maps the cursor, and handles density injection.
+ * @param state Application state containing timing, viewport, and cursor values.
+ * @param settings Simulation settings that control density injection.
+ * @param simulation CPU simulation to update.
+ * @return Nothing.
+ */
+void Update(ApplicationState& state, const SimulationSettings& settings, SimulationCPU& simulation) {
   if (state.resetRequested) {
     state.resetIndicatorTimeRemaining = resetIndicatorDuration;
   } else {
@@ -80,6 +119,13 @@ void Update(ApplicationState& state, const SimulationCPU& simulation) {
 
   state.mouseGridCoordinates =
     NormalizedToGrid(state.normalizedMousePosition.x, state.normalizedMousePosition.y, simulation.Width(), simulation.Height());
+
+  // Keep interaction eligibility separate because grid mapping clamps out-of-viewport positions.
+  state.mouseInsideViewport = CheckCollisionPointRec(state.mousePosition, state.viewport);
+
+  if (!state.isPause && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
+    InjectDensity(simulation, settings, state.mouseGridCoordinates);
+  }
 }
 
 /**
@@ -153,7 +199,7 @@ void Render(const ApplicationState& state, const SimulationSettings& settings, c
   const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", state.normalizedMousePosition.x, state.normalizedMousePosition.y);
   DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
-  if (CheckCollisionPointRec(state.mousePosition, state.viewport)) {
+  if (state.mouseInsideViewport) {
     // Prevent the brush outline from drawing across the viewport border.
     BeginScissorMode(static_cast<int>(state.viewport.x),
                      static_cast<int>(state.viewport.y),
@@ -189,14 +235,12 @@ int main() {
   SimulationSettings simulationSettings;
   SimulationCPU simulation(simulationSettings);
 
-  simulation.Density().At(simulation.Width() / 2, simulation.Height() / 2) = 1.0F;
-
   while (!WindowShouldClose()) {
     // Record timing before running the frame's input, update, and render phases.
     state.frameTime = GetFrameTime();
 
     HandleInput(state);
-    Update(state, simulation);
+    Update(state, simulationSettings, simulation);
     Render(state, simulationSettings, simulation);
   }
 
