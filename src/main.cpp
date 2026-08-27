@@ -128,7 +128,7 @@ void InjectDensityAndVelocity(SimulationCPU& simulation,
 }
 
 /**
- * @brief Advances application state, maps the cursor, and handles density and velocity injection.
+ * @brief Advances application state, maps the cursor, and handles reset and brush injection.
  * @param state Application state containing timing, viewport, and cursor values.
  * @param settings Simulation settings that control brush injection.
  * @param simulation CPU simulation to update.
@@ -136,6 +136,7 @@ void InjectDensityAndVelocity(SimulationCPU& simulation,
  */
 void Update(ApplicationState& state, const SimulationSettings& settings, SimulationCPU& simulation) {
   if (state.resetRequested) {
+    simulation.Reset();
     state.resetIndicatorTimeRemaining = resetIndicatorDuration;
   } else {
     state.resetIndicatorTimeRemaining = std::max(0.0F, state.resetIndicatorTimeRemaining - state.frameTime);
@@ -167,7 +168,7 @@ void Update(ApplicationState& state, const SimulationSettings& settings, Simulat
   // Keep interaction eligibility separate because grid mapping clamps out-of-viewport positions.
   state.mouseInsideViewport = CheckCollisionPointRec(state.mousePosition, state.viewport);
 
-  if (!state.isPause && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
+  if (!state.resetRequested && !state.isPause && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
     // Normalize pixel motion so force remains consistent when the viewport is resized.
     const float normalizedDeltaX = state.mouseDelta.x / state.viewport.width;
     const float normalizedDeltaY = state.mouseDelta.y / state.viewport.height;

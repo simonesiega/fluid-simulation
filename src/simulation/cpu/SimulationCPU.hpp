@@ -32,6 +32,12 @@ public:
   [[nodiscard]] std::size_t Height() const noexcept;
 
   /**
+   * @brief Clears every CPU field and restores the original ping-pong buffer roles.
+   * @return Nothing.
+   */
+  void Reset() noexcept;
+
+  /**
    * @brief Returns mutable access to the density field.
    * @return Density field.
    */

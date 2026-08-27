@@ -57,6 +57,16 @@ public:
     sourceIsFirst_ = !sourceIsFirst_;
   }
 
+  /**
+   * @brief Clears both fields and restores their original source and destination roles.
+   * @return Nothing.
+   */
+  void Clear() noexcept {
+    first_.Clear();
+    second_.Clear();
+    sourceIsFirst_ = true;
+  }
+
 private:
   Field first_;
   Field second_;

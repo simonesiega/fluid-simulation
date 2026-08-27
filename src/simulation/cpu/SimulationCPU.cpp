@@ -53,6 +53,17 @@ std::size_t SimulationCPU::Height() const noexcept {
 }
 
 /**
+ * @brief Clears every CPU field and restores the original ping-pong buffer roles.
+ * @return Nothing.
+ */
+void SimulationCPU::Reset() noexcept {
+  densityBuffers_.Clear();
+  velocityBuffers_.Clear();
+  pressureBuffers_.Clear();
+  divergence_.Clear();
+}
+
+/**
  * @brief Returns mutable access to the density field.
  * @return Density field.
  */
