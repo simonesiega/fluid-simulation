@@ -49,10 +49,10 @@ void HandleInput(ApplicationState& state) {
 }
 
 /**
- * @brief Adds density to a hard-edged square region around one grid cell.
+ * @brief Adds density with linear radial falloff around one grid cell.
  * @param simulation CPU simulation containing the density field to modify.
  * @param settings Simulation settings that define brush radius and density strength.
- * @param center Grid cell at the center of the square brush.
+ * @param center Grid cell at the center of the radial brush.
  * @return Nothing.
  */
 void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings, const GridCoordinates& center) {
@@ -60,14 +60,16 @@ void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings
     return;
   }
 
-  // Convert the normalized radius independently for each grid axis.
   const float normalizedRadius = std::isfinite(settings.brushRadius) ? std::clamp(settings.brushRadius, 0.0F, 1.0F) : 0.0F;
+  if (normalizedRadius <= 0.0F) {
+    return;
+  }
+
+  // Keep the edge-safe square bounds as the candidate region for the radial brush.
   const std::size_t width = simulation.Width();
   const std::size_t height = simulation.Height();
   const std::size_t radiusX = static_cast<std::size_t>(normalizedRadius * static_cast<float>(width));
   const std::size_t radiusY = static_cast<std::size_t>(normalizedRadius * static_cast<float>(height));
-
-  // Limit the square brush to valid cells near every grid edge and corner.
   const std::size_t minimumX = center.x - std::min(center.x, radiusX);
   const std::size_t maximumX = center.x + std::min(width - 1 - center.x, radiusX);
   const std::size_t minimumY = center.y - std::min(center.y, radiusY);
@@ -76,9 +78,22 @@ void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings
 
   for (std::size_t y = minimumY; y <= maximumY; ++y) {
     for (std::size_t x = minimumX; x <= maximumX; ++x) {
+      // Cast before subtraction so offsets to the left and above remain negative.
+      const float offsetX = static_cast<float>(x) - static_cast<float>(center.x);
+      const float offsetY = static_cast<float>(y) - static_cast<float>(center.y);
+      const float normalizedX = offsetX / static_cast<float>(width);
+      const float normalizedY = offsetY / static_cast<float>(height);
+      const float distance = std::sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+
+      if (distance > normalizedRadius) {
+        continue;
+      }
+
+      const float normalizedDistance = distance / normalizedRadius;
+      const float falloff = std::clamp(1.0F - normalizedDistance, 0.0F, 1.0F);
       float& value = density.At(x, y);
-      // Holding the button accumulates density instead of replacing the current value.
-      value += settings.brushDensity;
+      // Holding the button accumulates weighted density instead of replacing the current value.
+      value += settings.brushDensity * falloff;
     }
   }
 }
