@@ -1,5 +1,6 @@
 #include "app/ApplicationConfig.hpp"
 #include "simulation/SimulationSettings.hpp"
+#include "simulation/cpu/SimulationCPU.hpp"
 
 #include <raylib.h>
 
@@ -9,6 +10,7 @@
 namespace {
 using fluid_simulation::config::ApplicationConfig;
 using fluid_simulation::simulation::SimulationSettings;
+using fluid_simulation::simulation::cpu::SimulationCPU;
 
 constexpr float resetIndicatorDuration = 0.75F;
 
@@ -135,6 +137,7 @@ int main() {
 
   ApplicationState state;
   SimulationSettings simulationSettings;
+  SimulationCPU simulation(simulationSettings);
 
   while (!WindowShouldClose()) {
     // Record timing before running the frame's input, update, and render phases.

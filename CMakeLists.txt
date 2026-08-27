@@ -20,6 +20,8 @@ add_executable(fluid-simulation
     src/simulation/cpu/GridIndex.hpp
     src/simulation/cpu/ScalarField.cpp
     src/simulation/cpu/ScalarField.hpp
+    src/simulation/cpu/SimulationCPU.cpp
+    src/simulation/cpu/SimulationCPU.hpp
     src/simulation/cpu/VectorField.cpp
     src/simulation/cpu/VectorField.hpp
     src/simulation/SimulationSettings.hpp
