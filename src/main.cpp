@@ -16,6 +16,8 @@ using fluid_simulation::simulation::NormalizedToGrid;
 using fluid_simulation::simulation::SimulationSettings;
 using fluid_simulation::simulation::cpu::ScalarField;
 using fluid_simulation::simulation::cpu::SimulationCPU;
+using fluid_simulation::simulation::cpu::Vector2f;
+using fluid_simulation::simulation::cpu::VectorField;
 
 constexpr float resetIndicatorDuration = 0.75F;
 
@@ -28,6 +30,7 @@ struct ApplicationState {
   float frameTime = 0.0F;
   float resetIndicatorTimeRemaining = 0.0F;
   Vector2 mousePosition{};
+  Vector2 mouseDelta{};
   Rectangle viewport{};
   Vector2 normalizedMousePosition{};
   GridCoordinates mouseGridCoordinates{};
@@ -46,17 +49,31 @@ void HandleInput(ApplicationState& state) {
   state.resetRequested = IsKeyPressed(KEY_R);
   state.isLeftMouseButtonDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
   state.mousePosition = GetMousePosition();
+  state.mouseDelta = GetMouseDelta();
 }
 
 /**
- * @brief Adds density with linear radial falloff around one grid cell.
- * @param simulation CPU simulation containing the density field to modify.
- * @param settings Simulation settings that define brush radius and density strength.
+ * @brief Adds density and mouse-drag momentum with shared radial falloff.
+ * @param simulation CPU simulation containing the fields to modify.
+ * @param settings Simulation settings that define brush radius, density, and force.
  * @param center Grid cell at the center of the radial brush.
+ * @param normalizedDeltaX Horizontal mouse movement in normalized simulation space.
+ * @param normalizedDeltaY Vertical mouse movement in normalized simulation space.
  * @return Nothing.
  */
-void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings, const GridCoordinates& center) {
-  if (!std::isfinite(settings.brushDensity) || settings.brushDensity <= 0.0F) {
+void InjectDensityAndVelocity(SimulationCPU& simulation,
+                              const SimulationSettings& settings,
+                              const GridCoordinates& center,
+                              float normalizedDeltaX,
+                              float normalizedDeltaY) {
+  const bool injectDensity = std::isfinite(settings.brushDensity) && settings.brushDensity > 0.0F;
+  const bool validForce =
+    std::isfinite(settings.brushForce) && settings.brushForce > 0.0F && std::isfinite(normalizedDeltaX) && std::isfinite(normalizedDeltaY);
+  const float forceX = validForce ? normalizedDeltaX * settings.brushForce : 0.0F;
+  const float forceY = validForce ? normalizedDeltaY * settings.brushForce : 0.0F;
+  const bool injectVelocity = validForce && std::isfinite(forceX) && std::isfinite(forceY) && (forceX != 0.0F || forceY != 0.0F);
+
+  if (!injectDensity && !injectVelocity) {
     return;
   }
 
@@ -65,7 +82,7 @@ void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings
     return;
   }
 
-  // Keep the edge-safe square bounds as the candidate region for the radial brush.
+  // Keep the edge-safe square bounds as the candidate region for both radial injections.
   const std::size_t width = simulation.Width();
   const std::size_t height = simulation.Height();
   const std::size_t radiusX = static_cast<std::size_t>(normalizedRadius * static_cast<float>(width));
@@ -75,6 +92,7 @@ void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings
   const std::size_t minimumY = center.y - std::min(center.y, radiusY);
   const std::size_t maximumY = center.y + std::min(height - 1 - center.y, radiusY);
   ScalarField& density = simulation.Density();
+  VectorField& velocityField = simulation.Velocity();
 
   for (std::size_t y = minimumY; y <= maximumY; ++y) {
     for (std::size_t x = minimumX; x <= maximumX; ++x) {
@@ -91,17 +109,25 @@ void InjectDensity(SimulationCPU& simulation, const SimulationSettings& settings
 
       const float normalizedDistance = distance / normalizedRadius;
       const float falloff = std::clamp(1.0F - normalizedDistance, 0.0F, 1.0F);
-      float& value = density.At(x, y);
-      // Holding the button accumulates weighted density instead of replacing the current value.
-      value += settings.brushDensity * falloff;
+
+      if (injectDensity) {
+        float& value = density.At(x, y);
+        value += settings.brushDensity * falloff;
+      }
+
+      if (injectVelocity) {
+        Vector2f& velocity = velocityField.At(x, y);
+        velocity.x += forceX * falloff;
+        velocity.y += forceY * falloff;
+      }
     }
   }
 }
 
 /**
- * @brief Advances application state, maps the cursor, and handles density injection.
+ * @brief Advances application state, maps the cursor, and handles density and velocity injection.
  * @param state Application state containing timing, viewport, and cursor values.
- * @param settings Simulation settings that control density injection.
+ * @param settings Simulation settings that control brush injection.
  * @param simulation CPU simulation to update.
  * @return Nothing.
  */
@@ -139,7 +165,10 @@ void Update(ApplicationState& state, const SimulationSettings& settings, Simulat
   state.mouseInsideViewport = CheckCollisionPointRec(state.mousePosition, state.viewport);
 
   if (!state.isPause && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
-    InjectDensity(simulation, settings, state.mouseGridCoordinates);
+    // Normalize pixel motion so force remains consistent when the viewport is resized.
+    const float normalizedDeltaX = state.mouseDelta.x / state.viewport.width;
+    const float normalizedDeltaY = state.mouseDelta.y / state.viewport.height;
+    InjectDensityAndVelocity(simulation, settings, state.mouseGridCoordinates, normalizedDeltaX, normalizedDeltaY);
   }
 }
 
