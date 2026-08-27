@@ -60,6 +60,14 @@ public:
   [[nodiscard]] const Vector2f& At(std::size_t x, std::size_t y) const;
 
   /**
+   * @brief Samples the field at fractional grid coordinates using bilinear interpolation.
+   * @param x Horizontal grid-space coordinate, clamped to the field boundary.
+   * @param y Vertical grid-space coordinate, clamped to the field boundary.
+   * @return Interpolated two-component value.
+   */
+  [[nodiscard]] Vector2f SampleBilinear(float x, float y) const;
+
+  /**
    * @brief Returns the field width.
    * @return Number of columns in the field.
    */

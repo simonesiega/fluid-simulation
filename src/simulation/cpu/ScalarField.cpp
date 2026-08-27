@@ -3,6 +3,7 @@
 #include "simulation/cpu/GridIndex.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -61,6 +62,40 @@ float& ScalarField::At(std::size_t x, std::size_t y) {
  */
 const float& ScalarField::At(std::size_t x, std::size_t y) const {
   return values_[GridIndex(x, y, width_, height_)];
+}
+
+/**
+ * @brief Samples the field at fractional grid coordinates using bilinear interpolation.
+ * @param x Horizontal grid-space coordinate, clamped to the field boundary.
+ * @param y Vertical grid-space coordinate, clamped to the field boundary.
+ * @return Interpolated scalar value.
+ */
+float ScalarField::SampleBilinear(float x, float y) const {
+  if (width_ == 0 || height_ == 0) {
+    throw std::out_of_range("Cannot sample an empty ScalarField");
+  }
+
+  if (!std::isfinite(x) || !std::isfinite(y)) {
+    throw std::invalid_argument("ScalarField sample coordinates must be finite");
+  }
+
+  const float clampedX = std::clamp(x, 0.0F, static_cast<float>(width_ - 1));
+  const float clampedY = std::clamp(y, 0.0F, static_cast<float>(height_ - 1));
+  const std::size_t x0 = static_cast<std::size_t>(std::floor(clampedX));
+  const std::size_t y0 = static_cast<std::size_t>(std::floor(clampedY));
+  const std::size_t x1 = std::min(x0 + 1, width_ - 1);
+  const std::size_t y1 = std::min(y0 + 1, height_ - 1);
+  const float tx = clampedX - static_cast<float>(x0);
+  const float ty = clampedY - static_cast<float>(y0);
+
+  const float v00 = At(x0, y0);
+  const float v10 = At(x1, y0);
+  const float v01 = At(x0, y1);
+  const float v11 = At(x1, y1);
+  const float top = v00 * (1.0F - tx) + v10 * tx;
+  const float bottom = v01 * (1.0F - tx) + v11 * tx;
+
+  return top * (1.0F - ty) + bottom * ty;
 }
 
 /**
