@@ -7,12 +7,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 namespace {
 using fluid_simulation::config::ApplicationConfig;
 using fluid_simulation::simulation::GridCoordinates;
 using fluid_simulation::simulation::NormalizedToGrid;
 using fluid_simulation::simulation::SimulationSettings;
+using fluid_simulation::simulation::cpu::ScalarField;
 using fluid_simulation::simulation::cpu::SimulationCPU;
 
 constexpr float resetIndicatorDuration = 0.75F;
@@ -81,14 +83,52 @@ void Update(ApplicationState& state, const SimulationCPU& simulation) {
 }
 
 /**
- * @brief Draws the HUD, responsive viewport, and brush preview.
- * @param state Application state to render without modification.
- * @param settings Simulation settings that control the brush preview.
+ * @brief Draws a scalar field as grayscale cells inside the simulation viewport.
+ * @param field Scalar field to visualize without modification.
+ * @param viewport Screen-space rectangle occupied by the field.
  * @return Nothing.
  */
-void Render(const ApplicationState& state, const SimulationSettings& settings) {
+void RenderScalarField(const ScalarField& field, const Rectangle& viewport) {
+  const std::size_t width = field.Width();
+  const std::size_t height = field.Height();
+
+  const float cellWidth = viewport.width / static_cast<float>(width);
+  const float cellHeight = viewport.height / static_cast<float>(height);
+
+  for (std::size_t y = 0; y < height; ++y) {
+    for (std::size_t x = 0; x < width; ++x) {
+      const float value = field.At(x, y);
+      const float displayValue = std::isfinite(value) ? std::clamp(value, 0.0F, 1.0F) : 0.0F;
+      if (displayValue <= 0.0F) {
+        continue;
+      }
+
+      const unsigned char intensity = static_cast<unsigned char>(displayValue * 255.0F);
+      const Color color = {intensity, intensity, intensity, 255};
+      const Rectangle cell = {
+        viewport.x + static_cast<float>(x) * cellWidth,
+        viewport.y + static_cast<float>(y) * cellHeight,
+        cellWidth,
+        cellHeight,
+      };
+
+      DrawRectangleRec(cell, color);
+    }
+  }
+}
+
+/**
+ * @brief Draws the scalar field, HUD, responsive viewport, and brush preview.
+ * @param state Application state to render without modification.
+ * @param settings Simulation settings that control the brush preview.
+ * @param simulation CPU simulation containing the scalar field to visualize.
+ * @return Nothing.
+ */
+void Render(const ApplicationState& state, const SimulationSettings& settings, const SimulationCPU& simulation) {
   BeginDrawing();
   ClearBackground(BLACK);
+  RenderScalarField(simulation.Density(), state.viewport);
+
   DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
 
   const char* stateText = state.isPause ? "Paused" : "Running";
@@ -149,13 +189,15 @@ int main() {
   SimulationSettings simulationSettings;
   SimulationCPU simulation(simulationSettings);
 
+  simulation.Density().At(simulation.Width() / 2, simulation.Height() / 2) = 1.0F;
+
   while (!WindowShouldClose()) {
     // Record timing before running the frame's input, update, and render phases.
     state.frameTime = GetFrameTime();
 
     HandleInput(state);
     Update(state, simulation);
-    Render(state, simulationSettings);
+    Render(state, simulationSettings, simulation);
   }
 
   CloseWindow();
