@@ -38,6 +38,22 @@ SimulationCPU::SimulationCPU(std::size_t width, std::size_t height)
 }
 
 /**
+ * @brief Returns the shared simulation grid width.
+ * @return Number of columns in every simulation field.
+ */
+std::size_t SimulationCPU::Width() const noexcept {
+  return density_.Width();
+}
+
+/**
+ * @brief Returns the shared simulation grid height.
+ * @return Number of rows in every simulation field.
+ */
+std::size_t SimulationCPU::Height() const noexcept {
+  return density_.Height();
+}
+
+/**
  * @brief Returns mutable access to the density field.
  * @return Density field.
  */

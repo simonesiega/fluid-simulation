@@ -1,4 +1,5 @@
 #include "app/ApplicationConfig.hpp"
+#include "simulation/GridCoordinates.hpp"
 #include "simulation/SimulationSettings.hpp"
 #include "simulation/cpu/SimulationCPU.hpp"
 
@@ -9,6 +10,8 @@
 
 namespace {
 using fluid_simulation::config::ApplicationConfig;
+using fluid_simulation::simulation::GridCoordinates;
+using fluid_simulation::simulation::NormalizedToGrid;
 using fluid_simulation::simulation::SimulationSettings;
 using fluid_simulation::simulation::cpu::SimulationCPU;
 
@@ -21,6 +24,9 @@ struct ApplicationState {
   float frameTime = 0.0F;
   float resetIndicatorTimeRemaining = 0.0F;
   Vector2 mousePosition{};
+  Rectangle viewport{};
+  Vector2 normalizedMousePosition{};
+  GridCoordinates mouseGridCoordinates{};
 };
 
 /**
@@ -38,16 +44,40 @@ void HandleInput(ApplicationState& state) {
 }
 
 /**
- * @brief Advances temporary application state using the current frame time.
- * @param state Application state containing timing and reset indicator values.
+ * @brief Advances temporary application state and maps the cursor to the simulation grid.
+ * @param state Application state containing timing, viewport, and cursor values.
+ * @param simulation CPU simulation that provides the active grid dimensions.
  * @return Nothing.
  */
-void Update(ApplicationState& state) {
+void Update(ApplicationState& state, const SimulationCPU& simulation) {
   if (state.resetRequested) {
     state.resetIndicatorTimeRemaining = resetIndicatorDuration;
   } else {
     state.resetIndicatorTimeRemaining = std::max(0.0F, state.resetIndicatorTimeRemaining - state.frameTime);
   }
+
+  const float screenWidth = static_cast<float>(GetScreenWidth());
+  const float screenHeight = static_cast<float>(GetScreenHeight());
+  const float availableViewportWidth = std::max(0.0F, screenWidth - 2.0F * ApplicationConfig::viewportMargin);
+  const float viewportTop = ApplicationConfig::hudHeight + ApplicationConfig::viewportMargin;
+  const float availableViewportHeight = std::max(0.0F, screenHeight - viewportTop - ApplicationConfig::viewportMargin);
+  const float viewportSize = std::min(availableViewportWidth, availableViewportHeight);
+
+  state.viewport = {
+    (screenWidth - viewportSize) / 2.0F,
+    viewportTop + (availableViewportHeight - viewportSize) / 2.0F,
+    viewportSize,
+    viewportSize,
+  };
+
+  // Keep the normalized position unclamped for accurate cursor reporting outside the viewport.
+  state.normalizedMousePosition = {
+    (state.mousePosition.x - state.viewport.x) / state.viewport.width,
+    (state.mousePosition.y - state.viewport.y) / state.viewport.height,
+  };
+
+  state.mouseGridCoordinates =
+    NormalizedToGrid(state.normalizedMousePosition.x, state.normalizedMousePosition.y, simulation.Width(), simulation.Height());
 }
 
 /**
@@ -57,26 +87,6 @@ void Update(ApplicationState& state) {
  * @return Nothing.
  */
 void Render(const ApplicationState& state, const SimulationSettings& settings) {
-  const float screenWidth = static_cast<float>(GetScreenWidth());
-  const float screenHeight = static_cast<float>(GetScreenHeight());
-  const float availableViewportWidth = std::max(0.0F, screenWidth - 2.0F * ApplicationConfig::viewportMargin);
-  const float viewportTop = ApplicationConfig::hudHeight + ApplicationConfig::viewportMargin;
-  const float availableViewportHeight = std::max(0.0F, screenHeight - viewportTop - ApplicationConfig::viewportMargin);
-  const float viewportSize = std::min(availableViewportWidth, availableViewportHeight);
-
-  const Rectangle viewport = {
-    (screenWidth - viewportSize) / 2.0F,
-    viewportTop + (availableViewportHeight - viewportSize) / 2.0F,
-    viewportSize,
-    viewportSize,
-  };
-
-  // Convert the cursor to viewport coordinates without clamping out-of-bounds values.
-  const Vector2 normalizedMousePosition = {
-    (state.mousePosition.x - viewport.x) / viewport.width,
-    (state.mousePosition.y - viewport.y) / viewport.height,
-  };
-
   BeginDrawing();
   ClearBackground(BLACK);
   DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
@@ -100,21 +110,21 @@ void Render(const ApplicationState& state, const SimulationSettings& settings) {
   const int frameTimeTextWidth = MeasureText(frameTimeText, 20);
   DrawText(frameTimeText, GetScreenWidth() - frameTimeTextWidth - 16, 40, 20, LIGHTGRAY);
 
-  const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", normalizedMousePosition.x, normalizedMousePosition.y);
+  const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", state.normalizedMousePosition.x, state.normalizedMousePosition.y);
   DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
-  if (CheckCollisionPointRec(state.mousePosition, viewport)) {
+  if (CheckCollisionPointRec(state.mousePosition, state.viewport)) {
     // Prevent the brush outline from drawing across the viewport border.
-    BeginScissorMode(static_cast<int>(viewport.x),
-                     static_cast<int>(viewport.y),
-                     static_cast<int>(viewport.width),
-                     static_cast<int>(viewport.height));
-    const float brushPreviewRadius = settings.brushRadius * viewport.width;
+    BeginScissorMode(static_cast<int>(state.viewport.x),
+                     static_cast<int>(state.viewport.y),
+                     static_cast<int>(state.viewport.width),
+                     static_cast<int>(state.viewport.height));
+    const float brushPreviewRadius = settings.brushRadius * state.viewport.width;
     DrawCircleLinesV(state.mousePosition, brushPreviewRadius, LIGHTGRAY);
     EndScissorMode();
   }
 
-  DrawRectangleLinesEx(viewport, ApplicationConfig::viewportBorderWidth, LIGHTGRAY);
+  DrawRectangleLinesEx(state.viewport, ApplicationConfig::viewportBorderWidth, LIGHTGRAY);
   EndDrawing();
 }
 } // namespace
@@ -144,7 +154,7 @@ int main() {
     state.frameTime = GetFrameTime();
 
     HandleInput(state);
-    Update(state);
+    Update(state, simulation);
     Render(state, simulationSettings);
   }
 

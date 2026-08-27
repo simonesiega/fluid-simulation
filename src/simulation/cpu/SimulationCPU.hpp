@@ -19,6 +19,18 @@ public:
   explicit SimulationCPU(const SimulationSettings& settings);
 
   /**
+   * @brief Returns the shared simulation grid width.
+   * @return Number of columns in every simulation field.
+   */
+  [[nodiscard]] std::size_t Width() const noexcept;
+
+  /**
+   * @brief Returns the shared simulation grid height.
+   * @return Number of rows in every simulation field.
+   */
+  [[nodiscard]] std::size_t Height() const noexcept;
+
+  /**
    * @brief Returns mutable access to the density field.
    * @return Density field.
    */
