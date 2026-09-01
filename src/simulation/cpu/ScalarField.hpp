@@ -5,7 +5,9 @@
 
 namespace fluid_simulation::simulation::cpu {
 /**
- * @brief Owns a contiguous, two-dimensional field of scalar values.
+ * @brief Owns a contiguous, row-major two-dimensional field of scalar values.
+ *
+ * Coordinates use a top-left origin with x increasing rightward and y increasing downward.
  */
 class ScalarField final {
 public:
@@ -16,22 +18,29 @@ public:
 
   /**
    * @brief Creates a zero-initialized scalar field with the requested dimensions.
+   *
+   * If either dimension is zero, the field has empty storage while retaining both requested dimensions.
+   *
    * @param width Number of columns in the field.
    * @param height Number of rows in the field.
+   * @throws std::length_error If the requested dimensions exceed the maximum allocation size.
    */
   ScalarField(std::size_t width, std::size_t height);
 
   /**
    * @brief Replaces the field with zero-initialized storage of the requested dimensions.
+   *
+   * Existing element references are invalidated. If allocation fails, the field is unchanged.
+   * A zero dimension produces empty storage while preserving both requested dimensions.
+   *
    * @param width Number of columns in the resized field.
    * @param height Number of rows in the resized field.
-   * @return Nothing.
+   * @throws std::length_error If the requested dimensions exceed the maximum allocation size.
    */
   void Resize(std::size_t width, std::size_t height);
 
   /**
    * @brief Sets every field value to zero without changing its dimensions.
-   * @return Nothing.
    */
   void Clear() noexcept;
 
@@ -40,6 +49,7 @@ public:
    * @param x Zero-based column index.
    * @param y Zero-based row index.
    * @return Reference to the selected scalar value.
+   * @throws std::out_of_range If the coordinates are outside the field.
    */
   [[nodiscard]] float& At(std::size_t x, std::size_t y);
 
@@ -48,6 +58,7 @@ public:
    * @param x Zero-based column index.
    * @param y Zero-based row index.
    * @return Const reference to the selected scalar value.
+   * @throws std::out_of_range If the coordinates are outside the field.
    */
   [[nodiscard]] const float& At(std::size_t x, std::size_t y) const;
 
@@ -56,6 +67,8 @@ public:
    * @param x Horizontal grid-space coordinate, clamped to the field boundary.
    * @param y Vertical grid-space coordinate, clamped to the field boundary.
    * @return Interpolated scalar value.
+   * @throws std::out_of_range If the field is empty.
+   * @throws std::invalid_argument If either coordinate is not finite.
    */
   [[nodiscard]] float SampleBilinear(float x, float y) const;
 

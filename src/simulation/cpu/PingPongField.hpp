@@ -5,7 +5,11 @@
 namespace fluid_simulation::simulation::cpu {
 /**
  * @brief Owns two equally sized fields with interchangeable source and destination roles.
- * @tparam Field Field storage type constructed from width and height.
+ *
+ * Callers may mutate field values but must not resize either field through a returned
+ * reference, because that would violate the matching-dimensions invariant.
+ *
+ * @tparam Field Field storage type constructed from width and height and providing noexcept Clear().
  */
 template <typename Field> class PingPongField final {
 public:
@@ -50,20 +54,21 @@ public:
   }
 
   /**
-   * @brief Exchanges the logical source and destination roles without copying field values.
-   * @return Nothing.
+   * @brief Exchanges the logical source and destination roles in constant time.
+   *
+   * No field data is copied, and existing references to either physical field remain valid.
    */
   void Swap() noexcept {
     sourceIsFirst_ = !sourceIsFirst_;
   }
 
   /**
-   * @brief Clears both fields and restores their original source and destination roles.
-   * @return Nothing.
+   * @brief Clears both fields and restores the first field as the logical source.
    */
-  void Clear() noexcept {
+  void Reset() noexcept {
     first_.Clear();
     second_.Clear();
+
     sourceIsFirst_ = true;
   }
 

@@ -1,6 +1,7 @@
 #include "app/ApplicationConfig.hpp"
 #include "simulation/GridCoordinates.hpp"
 #include "simulation/SimulationSettings.hpp"
+#include "simulation/cpu/FieldInjection.hpp"
 #include "simulation/cpu/SimulationCPU.hpp"
 
 #include <raylib.h>
@@ -14,6 +15,7 @@ using fluid_simulation::config::ApplicationConfig;
 using fluid_simulation::simulation::GridCoordinates;
 using fluid_simulation::simulation::NormalizedToGrid;
 using fluid_simulation::simulation::SimulationSettings;
+using fluid_simulation::simulation::cpu::InjectDensityAndVelocity;
 using fluid_simulation::simulation::cpu::ScalarField;
 using fluid_simulation::simulation::cpu::SimulationCPU;
 using fluid_simulation::simulation::cpu::Vector2f;
@@ -24,9 +26,11 @@ constexpr std::size_t velocityDebugStride = 4;
 constexpr float velocityDebugScale = 1.0F;
 constexpr float velocityDebugMinimumMagnitudeSquared = 0.0001F;
 
-// Runtime values shared by the input, update, and render phases.
+/**
+ * @brief Stores runtime values shared by the input, update, and render phases.
+ */
 struct ApplicationState {
-  bool isPause = false;
+  bool isPaused = false;
   bool resetRequested = false;
   bool isLeftMouseButtonDown = false;
   bool mouseInsideViewport = false;
@@ -36,17 +40,15 @@ struct ApplicationState {
   Vector2 mouseDelta{};
   Rectangle viewport{};
   Vector2 normalizedMousePosition{};
-  GridCoordinates mouseGridCoordinates{};
 };
 
 /**
  * @brief Captures keyboard and mouse input for the current frame.
  * @param state Application state updated with input events and the mouse position.
- * @return Nothing.
  */
 void HandleInput(ApplicationState& state) {
   if (IsKeyPressed(KEY_SPACE)) {
-    state.isPause = !state.isPause;
+    state.isPaused = !state.isPaused;
   }
 
   state.resetRequested = IsKeyPressed(KEY_R);
@@ -56,83 +58,10 @@ void HandleInput(ApplicationState& state) {
 }
 
 /**
- * @brief Adds density and mouse-drag momentum with shared radial falloff.
- * @param simulation CPU simulation containing the fields to modify.
- * @param settings Simulation settings that define brush radius, density, and force.
- * @param center Grid cell at the center of the radial brush.
- * @param normalizedDeltaX Horizontal mouse movement in normalized simulation space.
- * @param normalizedDeltaY Vertical mouse movement in normalized simulation space.
- * @return Nothing.
- */
-void InjectDensityAndVelocity(SimulationCPU& simulation,
-                              const SimulationSettings& settings,
-                              const GridCoordinates& center,
-                              float normalizedDeltaX,
-                              float normalizedDeltaY) {
-  const bool injectDensity = std::isfinite(settings.brushDensity) && settings.brushDensity > 0.0F;
-  const bool validForce =
-    std::isfinite(settings.brushForce) && settings.brushForce > 0.0F && std::isfinite(normalizedDeltaX) && std::isfinite(normalizedDeltaY);
-  const float forceX = validForce ? normalizedDeltaX * settings.brushForce : 0.0F;
-  const float forceY = validForce ? normalizedDeltaY * settings.brushForce : 0.0F;
-  const bool injectVelocity = validForce && std::isfinite(forceX) && std::isfinite(forceY) && (forceX != 0.0F || forceY != 0.0F);
-
-  if (!injectDensity && !injectVelocity) {
-    return;
-  }
-
-  const float normalizedRadius = std::isfinite(settings.brushRadius) ? std::clamp(settings.brushRadius, 0.0F, 1.0F) : 0.0F;
-  if (normalizedRadius <= 0.0F) {
-    return;
-  }
-
-  // Keep the edge-safe square bounds as the candidate region for both radial injections.
-  const std::size_t width = simulation.Width();
-  const std::size_t height = simulation.Height();
-  const std::size_t radiusX = static_cast<std::size_t>(normalizedRadius * static_cast<float>(width));
-  const std::size_t radiusY = static_cast<std::size_t>(normalizedRadius * static_cast<float>(height));
-  const std::size_t minimumX = center.x - std::min(center.x, radiusX);
-  const std::size_t maximumX = center.x + std::min(width - 1 - center.x, radiusX);
-  const std::size_t minimumY = center.y - std::min(center.y, radiusY);
-  const std::size_t maximumY = center.y + std::min(height - 1 - center.y, radiusY);
-  ScalarField& density = simulation.Density();
-  VectorField& velocityField = simulation.Velocity();
-
-  for (std::size_t y = minimumY; y <= maximumY; ++y) {
-    for (std::size_t x = minimumX; x <= maximumX; ++x) {
-      // Cast before subtraction so offsets to the left and above remain negative.
-      const float offsetX = static_cast<float>(x) - static_cast<float>(center.x);
-      const float offsetY = static_cast<float>(y) - static_cast<float>(center.y);
-      const float normalizedX = offsetX / static_cast<float>(width);
-      const float normalizedY = offsetY / static_cast<float>(height);
-      const float distance = std::sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
-
-      if (distance > normalizedRadius) {
-        continue;
-      }
-
-      const float normalizedDistance = distance / normalizedRadius;
-      const float falloff = std::clamp(1.0F - normalizedDistance, 0.0F, 1.0F);
-
-      if (injectDensity) {
-        float& value = density.At(x, y);
-        value += settings.brushDensity * falloff;
-      }
-
-      if (injectVelocity) {
-        Vector2f& velocity = velocityField.At(x, y);
-        velocity.x += forceX * falloff;
-        velocity.y += forceY * falloff;
-      }
-    }
-  }
-}
-
-/**
  * @brief Advances application state, maps the cursor, and handles reset and brush injection.
  * @param state Application state containing timing, viewport, and cursor values.
  * @param settings Simulation settings that control brush injection.
  * @param simulation CPU simulation to update.
- * @return Nothing.
  */
 void Update(ApplicationState& state, const SimulationSettings& settings, SimulationCPU& simulation) {
   if (state.resetRequested) {
@@ -149,6 +78,7 @@ void Update(ApplicationState& state, const SimulationSettings& settings, Simulat
   const float availableViewportHeight = std::max(0.0F, screenHeight - viewportTop - ApplicationConfig::viewportMargin);
   const float viewportSize = std::min(availableViewportWidth, availableViewportHeight);
 
+  // Keep the simulation viewport square and centered.
   state.viewport = {
     (screenWidth - viewportSize) / 2.0F,
     viewportTop + (availableViewportHeight - viewportSize) / 2.0F,
@@ -156,31 +86,38 @@ void Update(ApplicationState& state, const SimulationSettings& settings, Simulat
     viewportSize,
   };
 
-  // Keep the normalized position unclamped for accurate cursor reporting outside the viewport.
+  if (viewportSize <= 0.0F) {
+    state.normalizedMousePosition = {};
+    state.mouseInsideViewport = false;
+    return;
+  }
+
+  // Preserve out-of-viewport values for accurate cursor reporting.
   state.normalizedMousePosition = {
     (state.mousePosition.x - state.viewport.x) / state.viewport.width,
     (state.mousePosition.y - state.viewport.y) / state.viewport.height,
   };
 
-  state.mouseGridCoordinates =
-    NormalizedToGrid(state.normalizedMousePosition.x, state.normalizedMousePosition.y, simulation.Width(), simulation.Height());
-
-  // Keep interaction eligibility separate because grid mapping clamps out-of-viewport positions.
+  // Interaction eligibility stays separate from the clamped grid mapping.
   state.mouseInsideViewport = CheckCollisionPointRec(state.mousePosition, state.viewport);
 
-  if (!state.resetRequested && !state.isPause && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
-    // Normalize pixel motion so force remains consistent when the viewport is resized.
+  // Inject only during active interaction, and never on the reset frame.
+  if (!state.resetRequested && !state.isPaused && state.mouseInsideViewport && state.isLeftMouseButtonDown) {
+    const GridCoordinates mouseGridCoordinates =
+      NormalizedToGrid(state.normalizedMousePosition.x, state.normalizedMousePosition.y, simulation.Width(), simulation.Height());
+
+    // Normalize mouse motion to keep brush force viewport-size independent.
     const float normalizedDeltaX = state.mouseDelta.x / state.viewport.width;
     const float normalizedDeltaY = state.mouseDelta.y / state.viewport.height;
-    InjectDensityAndVelocity(simulation, settings, state.mouseGridCoordinates, normalizedDeltaX, normalizedDeltaY);
+    InjectDensityAndVelocity(simulation, settings, mouseGridCoordinates, normalizedDeltaX, normalizedDeltaY);
   }
 }
 
 /**
  * @brief Draws a scalar field as grayscale cells inside the simulation viewport.
- * @param field Scalar field to visualize without modification.
+ * @param field Non-empty scalar field to visualize without modification.
  * @param viewport Screen-space rectangle occupied by the field.
- * @return Nothing.
+ * @pre The field has positive width and height.
  */
 void RenderScalarField(const ScalarField& field, const Rectangle& viewport) {
   const std::size_t width = field.Width();
@@ -192,6 +129,8 @@ void RenderScalarField(const ScalarField& field, const Rectangle& viewport) {
   for (std::size_t y = 0; y < height; ++y) {
     for (std::size_t x = 0; x < width; ++x) {
       const float value = field.At(x, y);
+
+      // Sanitize and clamp values to the grayscale display range.
       const float displayValue = std::isfinite(value) ? std::clamp(value, 0.0F, 1.0F) : 0.0F;
       if (displayValue <= 0.0F) {
         continue;
@@ -213,16 +152,18 @@ void RenderScalarField(const ScalarField& field, const Rectangle& viewport) {
 
 /**
  * @brief Draws sampled velocity vectors from their grid-cell centers.
- * @param field Velocity field to visualize without modification.
+ * @param field Non-empty velocity field to visualize without modification.
  * @param viewport Screen-space rectangle occupied by the field.
- * @return Nothing.
+ * @pre The field has positive width and height.
  */
 void RenderVelocityField(const VectorField& field, const Rectangle& viewport) {
   const std::size_t width = field.Width();
   const std::size_t height = field.Height();
+
   const float cellWidth = viewport.width / static_cast<float>(width);
   const float cellHeight = viewport.height / static_cast<float>(height);
 
+  // Keep debug vectors clipped to the simulation viewport.
   BeginScissorMode(static_cast<int>(viewport.x),
                    static_cast<int>(viewport.y),
                    static_cast<int>(viewport.width),
@@ -235,11 +176,13 @@ void RenderVelocityField(const VectorField& field, const Rectangle& viewport) {
         continue;
       }
 
+      // Skip negligible vectors to keep the debug view readable.
       const float magnitudeSquared = velocity.x * velocity.x + velocity.y * velocity.y;
       if (magnitudeSquared <= velocityDebugMinimumMagnitudeSquared) {
         continue;
       }
 
+      // Draw each sampled vector from the center of its grid cell.
       const Vector2 start = {
         viewport.x + (static_cast<float>(x) + 0.5F) * cellWidth,
         viewport.y + (static_cast<float>(y) + 0.5F) * cellHeight,
@@ -263,17 +206,17 @@ void RenderVelocityField(const VectorField& field, const Rectangle& viewport) {
  * @param state Application state to render without modification.
  * @param settings Simulation settings that control the brush preview.
  * @param simulation CPU simulation containing the fields to visualize.
- * @return Nothing.
  */
 void Render(const ApplicationState& state, const SimulationSettings& settings, const SimulationCPU& simulation) {
   BeginDrawing();
   ClearBackground(BLACK);
-  RenderScalarField(simulation.Density(), state.viewport);
-  RenderVelocityField(simulation.Velocity(), state.viewport);
+
+  RenderScalarField(simulation.DensitySource(), state.viewport);
+  RenderVelocityField(simulation.VelocitySource(), state.viewport);
 
   DrawText(ApplicationConfig::windowTitle, 16, 16, 20, LIGHTGRAY);
 
-  const char* stateText = state.isPause ? "Paused" : "Running";
+  const char* stateText = state.isPaused ? "Paused" : "Running";
   const int stateTextWidth = MeasureText(stateText, 20);
   DrawText(stateText, (GetScreenWidth() - stateTextWidth) / 2, 16, 20, LIGHTGRAY);
 
@@ -295,14 +238,15 @@ void Render(const ApplicationState& state, const SimulationSettings& settings, c
   const char* mousePositionText = TextFormat("Mouse: (%.3f, %.3f)", state.normalizedMousePosition.x, state.normalizedMousePosition.y);
   DrawText(mousePositionText, 16, 40, 20, LIGHTGRAY);
 
-  if (state.mouseInsideViewport) {
-    // Prevent the brush outline from drawing across the viewport border.
+  const float normalizedBrushRadius = std::isfinite(settings.brushRadius) ? std::clamp(settings.brushRadius, 0.0F, 1.0F) : 0.0F;
+
+  if (state.mouseInsideViewport && normalizedBrushRadius > 0.0F) {
+    // Keep the brush outline clipped to the simulation viewport.
     BeginScissorMode(static_cast<int>(state.viewport.x),
                      static_cast<int>(state.viewport.y),
                      static_cast<int>(state.viewport.width),
                      static_cast<int>(state.viewport.height));
-    const float brushPreviewRadius = settings.brushRadius * state.viewport.width;
-    DrawCircleLinesV(state.mousePosition, brushPreviewRadius, LIGHTGRAY);
+    DrawCircleLinesV(state.mousePosition, normalizedBrushRadius * state.viewport.width, LIGHTGRAY);
     EndScissorMode();
   }
 
@@ -328,11 +272,10 @@ int main() {
   }
 
   ApplicationState state;
-  SimulationSettings simulationSettings;
+  const SimulationSettings simulationSettings;
   SimulationCPU simulation(simulationSettings);
 
   while (!WindowShouldClose()) {
-    // Record timing before running the frame's input, update, and render phases.
     state.frameTime = GetFrameTime();
 
     HandleInput(state);

@@ -6,9 +6,10 @@
 namespace fluid_simulation::simulation::cpu {
 namespace {
 /**
- * @brief Converts a positive configured grid dimension to the field index type.
- * @param dimension Configured grid dimension.
- * @return Validated grid dimension as std::size_t.
+ * @brief Converts a configured positive grid dimension to the field index type.
+ * @param dimension Configured grid dimension to validate.
+ * @return Validated dimension as std::size_t.
+ * @throws std::invalid_argument If dimension is not positive.
  */
 [[nodiscard]] std::size_t CheckedGridDimension(int dimension) {
   if (dimension <= 0) {
@@ -19,182 +20,94 @@ namespace {
 }
 } // namespace
 
-/**
- * @brief Creates zero-initialized CPU fields using one shared grid size.
- * @param settings Simulation settings containing the grid dimensions.
- */
 SimulationCPU::SimulationCPU(const SimulationSettings& settings)
     : SimulationCPU(CheckedGridDimension(settings.gridWidth), CheckedGridDimension(settings.gridHeight)) {
 }
 
-/**
- * @brief Initializes every owned field with validated grid dimensions.
- * @param width Number of columns shared by all fields.
- * @param height Number of rows shared by all fields.
- */
 SimulationCPU::SimulationCPU(std::size_t width, std::size_t height)
     : densityBuffers_(width, height), velocityBuffers_(width, height), pressureBuffers_(width, height), divergence_(width, height) {
 }
 
-/**
- * @brief Returns the shared simulation grid width.
- * @return Number of columns in every simulation field.
- */
 std::size_t SimulationCPU::Width() const noexcept {
   return densityBuffers_.Source().Width();
 }
 
-/**
- * @brief Returns the shared simulation grid height.
- * @return Number of rows in every simulation field.
- */
 std::size_t SimulationCPU::Height() const noexcept {
   return densityBuffers_.Source().Height();
 }
 
-/**
- * @brief Clears every CPU field and restores the original ping-pong buffer roles.
- * @return Nothing.
- */
 void SimulationCPU::Reset() noexcept {
-  densityBuffers_.Clear();
-  velocityBuffers_.Clear();
-  pressureBuffers_.Clear();
+  densityBuffers_.Reset();
+  velocityBuffers_.Reset();
+  pressureBuffers_.Reset();
+
   divergence_.Clear();
 }
 
-/**
- * @brief Returns mutable access to the density field.
- * @return Density field.
- */
-ScalarField& SimulationCPU::Density() noexcept {
+ScalarField& SimulationCPU::DensitySource() noexcept {
   return densityBuffers_.Source();
 }
 
-/**
- * @brief Returns read-only access to the density field.
- * @return Density field.
- */
-const ScalarField& SimulationCPU::Density() const noexcept {
+const ScalarField& SimulationCPU::DensitySource() const noexcept {
   return densityBuffers_.Source();
 }
 
-/**
- * @brief Returns mutable access to the velocity field.
- * @return Velocity field.
- */
-VectorField& SimulationCPU::Velocity() noexcept {
+VectorField& SimulationCPU::VelocitySource() noexcept {
   return velocityBuffers_.Source();
 }
 
-/**
- * @brief Returns read-only access to the velocity field.
- * @return Velocity field.
- */
-const VectorField& SimulationCPU::Velocity() const noexcept {
+const VectorField& SimulationCPU::VelocitySource() const noexcept {
   return velocityBuffers_.Source();
 }
 
-/**
- * @brief Returns mutable access to the pressure field.
- * @return Pressure field.
- */
-ScalarField& SimulationCPU::Pressure() noexcept {
+ScalarField& SimulationCPU::PressureSource() noexcept {
   return pressureBuffers_.Source();
 }
 
-/**
- * @brief Returns read-only access to the pressure field.
- * @return Pressure field.
- */
-const ScalarField& SimulationCPU::Pressure() const noexcept {
+const ScalarField& SimulationCPU::PressureSource() const noexcept {
   return pressureBuffers_.Source();
 }
 
-/**
- * @brief Returns mutable access to the divergence field.
- * @return Divergence field.
- */
 ScalarField& SimulationCPU::Divergence() noexcept {
   return divergence_;
 }
 
-/**
- * @brief Returns read-only access to the divergence field.
- * @return Divergence field.
- */
 const ScalarField& SimulationCPU::Divergence() const noexcept {
   return divergence_;
 }
 
-/**
- * @brief Returns mutable access to the density scratch field.
- * @return Density scratch field.
- */
-ScalarField& SimulationCPU::DensityScratch() noexcept {
+ScalarField& SimulationCPU::DensityDestination() noexcept {
   return densityBuffers_.Destination();
 }
 
-/**
- * @brief Returns read-only access to the density scratch field.
- * @return Density scratch field.
- */
-const ScalarField& SimulationCPU::DensityScratch() const noexcept {
+const ScalarField& SimulationCPU::DensityDestination() const noexcept {
   return densityBuffers_.Destination();
 }
 
-/**
- * @brief Returns mutable access to the velocity scratch field.
- * @return Velocity scratch field.
- */
-VectorField& SimulationCPU::VelocityScratch() noexcept {
+VectorField& SimulationCPU::VelocityDestination() noexcept {
   return velocityBuffers_.Destination();
 }
 
-/**
- * @brief Returns read-only access to the velocity scratch field.
- * @return Velocity scratch field.
- */
-const VectorField& SimulationCPU::VelocityScratch() const noexcept {
+const VectorField& SimulationCPU::VelocityDestination() const noexcept {
   return velocityBuffers_.Destination();
 }
 
-/**
- * @brief Returns mutable access to the pressure scratch field.
- * @return Pressure scratch field.
- */
-ScalarField& SimulationCPU::PressureScratch() noexcept {
+ScalarField& SimulationCPU::PressureDestination() noexcept {
   return pressureBuffers_.Destination();
 }
 
-/**
- * @brief Returns read-only access to the pressure scratch field.
- * @return Pressure scratch field.
- */
-const ScalarField& SimulationCPU::PressureScratch() const noexcept {
+const ScalarField& SimulationCPU::PressureDestination() const noexcept {
   return pressureBuffers_.Destination();
 }
 
-/**
- * @brief Exchanges the logical density source and destination fields.
- * @return Nothing.
- */
 void SimulationCPU::SwapDensityBuffers() noexcept {
   densityBuffers_.Swap();
 }
 
-/**
- * @brief Exchanges the logical velocity source and destination fields.
- * @return Nothing.
- */
 void SimulationCPU::SwapVelocityBuffers() noexcept {
   velocityBuffers_.Swap();
 }
 
-/**
- * @brief Exchanges the logical pressure source and destination fields.
- * @return Nothing.
- */
 void SimulationCPU::SwapPressureBuffers() noexcept {
   pressureBuffers_.Swap();
 }

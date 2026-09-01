@@ -18,6 +18,8 @@ FetchContent_MakeAvailable(raylib)
 add_executable(fluid-simulation
     src/app/ApplicationConfig.hpp
     src/simulation/GridCoordinates.hpp
+    src/simulation/cpu/FieldInjection.cpp
+    src/simulation/cpu/FieldInjection.hpp
     src/simulation/cpu/GridIndex.hpp
     src/simulation/cpu/PingPongField.hpp
     src/simulation/cpu/ScalarField.cpp
